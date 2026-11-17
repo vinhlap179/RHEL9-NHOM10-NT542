@@ -1,0 +1,12 @@
+# Copy thanh inventory.ini roi sua IP cho dung may ao cua ban (KHONG push inventory.ini len GitHub)
+[rhel9_lab]
+rhel-node1 ansible_host=192.168.221.101
+rhel-node2 ansible_host=192.168.221.102
+
+[rhel9:children]
+rhel9_lab
+
+[rhel9:vars]
+ansible_user=ansible
+ansible_ssh_private_key_file=~/.ssh/id_ed25519
+ansible_become=true

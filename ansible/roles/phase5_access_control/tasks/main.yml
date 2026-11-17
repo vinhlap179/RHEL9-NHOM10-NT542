@@ -1,0 +1,64 @@
+---
+# Chuong 5 - Access Control (CIS RHEL 9 Benchmark v3.0.0, Level 1, Automated)
+# --- 5.1.20 Ensure sshd PermitEmptyPasswords is disabled
+- name: 5.1.20 - Đặt PermitEmptyPasswords no (drop-in sshd_config.d)
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config.d/00-cis-hardening.conf
+    regexp: '^\s*PermitEmptyPasswords\s'
+    line: PermitEmptyPasswords no
+    create: true
+    owner: root
+    group: root
+    mode: "0600"
+  register: ssh_empty
+  tags: [cis_5_1_20]
+
+- name: 5.1.20 - Kiểm tra cú pháp rồi nạp lại sshd khi có thay đổi
+  ansible.builtin.shell: /usr/sbin/sshd -t && systemctl reload sshd
+  when: ssh_empty.changed
+  tags: [cis_5_1_20]
+
+# --- 5.1.21 Ensure sshd PermitRootLogin is disabled
+- name: 5.1.21 - Đặt PermitRootLogin no (drop-in sshd_config.d)
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config.d/00-cis-hardening.conf
+    regexp: '^\s*PermitRootLogin\s'
+    line: PermitRootLogin no
+    create: true
+    owner: root
+    group: root
+    mode: "0600"
+  register: ssh_root
+  tags: [cis_5_1_21]
+
+- name: 5.1.21 - Kiểm tra cú pháp rồi nạp lại sshd khi có thay đổi
+  ansible.builtin.shell: /usr/sbin/sshd -t && systemctl reload sshd
+  when: ssh_root.changed
+  tags: [cis_5_1_21]
+
+# --- 5.2.4 Ensure sudo commands use pty
+- name: 5.2.4 - Bật Defaults use_pty cho sudo
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/00-cis-use-pty
+    content: "Defaults use_pty\n"
+    owner: root
+    group: root
+    mode: "0440"
+    validate: /usr/sbin/visudo -cf %s
+  tags: [cis_5_2_4]
+
+# --- 5.3.3.1.1 Ensure password failed attempts lockout is configured
+- name: 5.3.3.1.1 - Đặt deny = 5 trong faillock.conf
+  ansible.builtin.lineinfile:
+    path: /etc/security/faillock.conf
+    regexp: '^\s*#?\s*deny\s*='
+    line: deny = 5
+  tags: [cis_5_3_3_1_1]
+
+# --- 5.3.3.2.2 Ensure password length is configured
+- name: 5.3.3.2.2 - Đặt minlen = 14 trong pwquality.conf
+  ansible.builtin.lineinfile:
+    path: /etc/security/pwquality.conf
+    regexp: '^\s*#?\s*minlen\s*='
+    line: minlen = 14
+  tags: [cis_5_3_3_2_2]

@@ -1,0 +1,63 @@
+---
+# Chuong 7 - System Maintenance (CIS RHEL 9 Benchmark v3.0.0, Level 1, Automated)
+# --- 7.1.1 Ensure access to /etc/passwd is configured
+- name: 7.1.1 - Đặt root:root và 0644 cho /etc/passwd
+  ansible.builtin.file:
+    path: /etc/passwd
+    owner: root
+    group: root
+    mode: "0644"
+  tags: [cis_7_1_1]
+
+# --- 7.1.5 Ensure access to /etc/shadow is configured
+- name: 7.1.5 - Đặt root:root và 0000 cho /etc/shadow
+  ansible.builtin.file:
+    path: /etc/shadow
+    owner: root
+    group: root
+    mode: "0000"
+  tags: [cis_7_1_5]
+
+# --- 7.1.11 Ensure world writable files and directories are secured
+- name: 7.1.11 - Gỡ quyền ghi của others trên tệp world-writable
+  ansible.builtin.shell: |
+    set -o pipefail
+    df --local -P | awk 'NR!=1 {print $6}' | xargs -I@ find @ -xdev -type f -perm -0002 -print -exec chmod o-w {} \;
+  args:
+    executable: /bin/bash
+  register: ww_files
+  changed_when: ww_files.stdout | length > 0
+  failed_when: ww_files.rc not in [0, 123]
+  tags: [cis_7_1_11]
+
+- name: 7.1.11 - Thêm sticky bit cho thư mục world-writable
+  ansible.builtin.shell: |
+    set -o pipefail
+    df --local -P | awk 'NR!=1 {print $6}' | xargs -I@ find @ -xdev -type d -perm -0002 ! -perm -1000 -print -exec chmod a+t {} \;
+  args:
+    executable: /bin/bash
+  register: ww_dirs
+  changed_when: ww_dirs.stdout | length > 0
+  failed_when: ww_dirs.rc not in [0, 123]
+  tags: [cis_7_1_11]
+
+# --- 7.2.8 Ensure local interactive user home directories are configured
+- name: 7.2.8 - Liệt kê mọi tài khoản có shell đăng nhập hợp lệ (theo /etc/shells, mọi UID)
+  ansible.builtin.shell: |
+    set -o pipefail
+    valid=$(grep -E '^/' /etc/shells | grep -vE '(nologin|false)$' | paste -sd'|')
+    awk -F: -v re="^($valid)$" '$7 ~ re {print $1":"$6}' /etc/passwd
+  args:
+    executable: /bin/bash
+  register: interactive_users
+  changed_when: false
+  tags: [cis_7_2_8]
+
+- name: 7.2.8 - Đặt chủ sở hữu và quyền chặt hơn hoặc bằng 0750 cho thư mục home
+  ansible.builtin.file:
+    path: "{{ item.split(':')[1] }}"
+    state: directory
+    owner: "{{ item.split(':')[0] }}"
+    mode: "g-w,o-rwx"
+  loop: "{{ interactive_users.stdout_lines }}"
+  tags: [cis_7_2_8]

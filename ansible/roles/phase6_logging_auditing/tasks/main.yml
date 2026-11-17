@@ -1,0 +1,95 @@
+---
+# Chuong 6 - Logging and Auditing (CIS RHEL 9 Benchmark v3.0.0, Level 1, Automated)
+# --- 6.1.2.2 Ensure rsyslog service is enabled and active
+- name: 6.1.2.2 - Cài rsyslog
+  ansible.builtin.dnf:
+    name: rsyslog
+    state: present
+  tags: [cis_6_1_2_2]
+
+- name: 6.1.2.2 - Bật và chạy rsyslog
+  ansible.builtin.service:
+    name: rsyslog
+    state: started
+    enabled: true
+  tags: [cis_6_1_2_2]
+
+# --- 6.2.1.4 Ensure auditd service is enabled and active
+- name: 6.2.1.4 - Cài gói audit
+  ansible.builtin.dnf:
+    name: audit
+    state: present
+  tags: [cis_6_2_1_4]
+
+- name: 6.2.1.4 - Bật và chạy auditd
+  ansible.builtin.service:
+    name: auditd
+    state: started
+    enabled: true
+  tags: [cis_6_2_1_4]
+
+# --- 6.2.2.2 Ensure audit logs are not automatically deleted
+- name: 6.2.2.2 - Đặt max_log_file_action = keep_logs
+  ansible.builtin.lineinfile:
+    path: /etc/audit/auditd.conf
+    regexp: '^\s*max_log_file_action\s*='
+    line: max_log_file_action = keep_logs
+  register: auditd_conf
+  tags: [cis_6_2_2_2]
+
+- name: 6.2.2.2 - Nạp lại cấu hình auditd khi có thay đổi
+  ansible.builtin.command: service auditd reload
+  when: auditd_conf.changed
+  tags: [cis_6_2_2_2]
+
+# --- 6.2.3.2 Ensure actions as another user are always logged
+- name: 6.2.3.2 - Ghi rule theo dõi hành động dưới danh nghĩa người dùng khác
+  ansible.builtin.copy:
+    dest: /etc/audit/rules.d/50-user_emulation.rules
+    content: |
+      -a always,exit -F arch=b64 -C euid!=uid -F auid!=unset -S execve,execveat -k user_emulation
+      -a always,exit -F arch=b32 -C euid!=uid -F auid!=unset -S execve,execveat -k user_emulation
+    owner: root
+    group: root
+    mode: "0640"
+  register: ue_rules
+  tags: [cis_6_2_3_2]
+
+- name: 6.2.3.2 - Nạp lại rule audit khi có thay đổi
+  ansible.builtin.command: augenrules --load
+  when: ue_rules.changed
+  tags: [cis_6_2_3_2]
+
+# --- 6.3.2 Ensure filesystem integrity is regularly checked
+- name: 6.3.2 - Cài aide và cronie
+  ansible.builtin.dnf:
+    name:
+      - aide
+      - cronie
+    state: present
+  tags: [cis_6_3_2]
+
+- name: 6.3.2 - Khởi tạo cơ sở dữ liệu AIDE (mất vài phút)
+  ansible.builtin.command: /usr/sbin/aide --init
+  args:
+    creates: /var/lib/aide/aide.db.new.gz
+  async: 1800
+  poll: 15
+  tags: [cis_6_3_2]
+
+- name: 6.3.2 - Kích hoạt cơ sở dữ liệu AIDE
+  ansible.builtin.copy:
+    src: /var/lib/aide/aide.db.new.gz
+    dest: /var/lib/aide/aide.db.gz
+    remote_src: true
+    force: false
+  tags: [cis_6_3_2]
+
+- name: 6.3.2 - Lập lịch kiểm tra AIDE hằng ngày lúc 05:00
+  ansible.builtin.cron:
+    name: aide-check
+    minute: "0"
+    hour: "5"
+    job: /usr/sbin/aide --check
+    user: root
+  tags: [cis_6_3_2]

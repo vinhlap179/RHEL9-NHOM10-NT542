@@ -1,0 +1,14 @@
+---
+# Chay tu thu muc ansible/:  ansible-playbook playbook.yml
+# Chay rieng 1 chuong:  --tags phase5   |  1 muc:  --tags cis_5_2_4   |  1 may:  --limit rhel-node1
+- name: CIS RHEL 9 Benchmark v3.0.0 - Level 1 (Automated)
+  hosts: rhel9
+  become: true
+  roles:
+    - { role: phase1_initial_setup, tags: [phase1] }
+    - { role: phase2_services, tags: [phase2] }
+    - { role: phase3_network, tags: [phase3] }
+    - { role: phase4_firewall, tags: [phase4] }
+    - { role: phase5_access_control, tags: [phase5] }
+    - { role: phase6_logging_auditing, tags: [phase6] }
+    - { role: phase7_system_maintenance, tags: [phase7] }

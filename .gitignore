@@ -1,0 +1,7 @@
+inventory.ini
+results/
+*.retry
+*.log
+*.pem
+id_*
+.vault_pass*

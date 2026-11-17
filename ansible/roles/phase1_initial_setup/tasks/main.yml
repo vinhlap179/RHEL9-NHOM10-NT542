@@ -1,0 +1,57 @@
+---
+# Chuong 1 - Initial Setup (CIS RHEL 9 Benchmark v3.0.0, Level 1, Automated)
+# --- 1.2.1.2 Ensure gpgcheck is configured
+- name: 1.2.1.2 - Bật gpgcheck toàn cục trong dnf.conf
+  ansible.builtin.lineinfile:
+    path: /etc/dnf/dnf.conf
+    regexp: '^\s*gpgcheck\s*='
+    line: gpgcheck=1
+    insertafter: '^\[main\]'
+  tags: [cis_1_2_1_2]
+
+- name: 1.2.1.2 - Liệt kê các tệp kho phần mềm
+  ansible.builtin.find:
+    paths: /etc/yum.repos.d
+    patterns: '*.repo'
+  register: repo_files
+  tags: [cis_1_2_1_2]
+
+- name: 1.2.1.2 - Đổi gpgcheck=0/false/no thành 1 trong từng kho
+  ansible.builtin.replace:
+    path: "{{ item.path }}"
+    regexp: '^\s*gpgcheck\s*=\s*(0|false|no)\s*$'
+    replace: gpgcheck=1
+  loop: "{{ repo_files.files }}"
+  loop_control:
+    label: "{{ item.path }}"
+  tags: [cis_1_2_1_2]
+
+# --- 1.3.1.5 Ensure the SELinux mode is enforcing
+- name: 1.3.1.5 - Đặt SELinux ở chế độ enforcing (cấu hình + đang chạy)
+  ansible.posix.selinux:
+    policy: targeted
+    state: enforcing
+  tags: [cis_1_3_1_5]
+
+# --- 1.5.6 Ensure kernel.randomize_va_space is configured
+- name: 1.5.6 - Đặt kernel.randomize_va_space = 2
+  ansible.posix.sysctl:
+    name: kernel.randomize_va_space
+    value: "2"
+    sysctl_file: /etc/sysctl.d/60-kernel_sysctl.conf
+    sysctl_set: true
+    reload: true
+    state: present
+  tags: [cis_1_5_6]
+
+# --- 1.6.1 Ensure system wide crypto policy is not legacy
+- name: 1.6.1 - Đọc chính sách mã hóa hiện tại
+  ansible.builtin.command: update-crypto-policies --show
+  register: crypto_policy
+  changed_when: false
+  tags: [cis_1_6_1]
+
+- name: 1.6.1 - Chuyển về DEFAULT nếu đang là LEGACY
+  ansible.builtin.command: update-crypto-policies --set DEFAULT
+  when: "'LEGACY' in crypto_policy.stdout"
+  tags: [cis_1_6_1]
